@@ -78,7 +78,7 @@ def normalize_metadata(df: pd.DataFrame, columns: Iterable[str]) -> pd.DataFrame
                 .astype(str)
                 .str.strip()
                 .str.lower()
-                .str.replace(r"\\s+", "_", regex=True)
+                .str.replace(r"\s+", "_", regex=True)
             )
     return df
 
@@ -166,7 +166,8 @@ def run_clustering(encoded_features: pd.DataFrame, output_dir: Path) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     scaled = StandardScaler().fit_transform(encoded_features)
 
-    k_range = range(2, min(10, len(encoded_features)))
+    max_k = min(10, encoded_features.shape[0])
+    k_range = range(2, max_k)
     inertia = []
     silhouette = []
     for k in k_range:
@@ -220,7 +221,7 @@ def run_dimensionality_reduction(encoded_features: pd.DataFrame, labels: pd.Seri
     plt.savefig(output_dir / "pca_plot.png")
     plt.close()
 
-    tsne_coords = TSNE(n_components=2, random_state=RANDOM_STATE, init="pca").fit_transform(scaled)
+    tsne_coords = TSNE(n_components=2, random_state=RANDOM_STATE, init="random").fit_transform(scaled)
     tsne_df = pd.DataFrame(tsne_coords, columns=["tsne1", "tsne2"])
     tsne_df["label"] = labels.values
     tsne_df.to_csv(output_dir / "tsne_embedding.csv", index=False)
