@@ -42,7 +42,11 @@ class DataPreparation:
             'mar_index'
         ]
         
-        # Ordinal encoding map: s=0 (susceptible), i=1 (intermediate), r=2 (resistant)
+        # Ordinal encoding map for antibiotic susceptibility interpretations
+        # s (susceptible) = 0: Bacteria killed/inhibited by standard antibiotic dose
+        # i (intermediate) = 1: May respond to higher doses or site-specific concentrations  
+        # r (resistant) = 2: Bacteria survive standard antibiotic dose
+        # This encoding reflects increasing resistance levels (0 < 1 < 2)
         self.encoding_map = {'s': 0, 'i': 1, 'r': 2}
         
     def load_data(self) -> pd.DataFrame:

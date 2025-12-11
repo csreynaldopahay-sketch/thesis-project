@@ -546,7 +546,10 @@ class AssociationRuleMining:
         Run Apriori algorithm to find frequent itemsets.
         
         Args:
-            min_support: Minimum support threshold
+            min_support: Minimum support threshold. Default 0.02 (2%) is chosen to 
+                        capture co-resistance patterns occurring in at least ~10 samples
+                        for datasets of ~500 isolates. For smaller datasets, consider 
+                        increasing this threshold (e.g., 0.05-0.10).
             max_len: Maximum itemset length
             
         Returns:
@@ -554,6 +557,14 @@ class AssociationRuleMining:
         """
         if self.binary_data is None:
             self.prepare_binary_data()
+        
+        # Adaptive min_support warning for small datasets
+        n_samples = len(self.binary_data)
+        min_count = n_samples * min_support
+        if min_count < 5:
+            print(f"Warning: With {n_samples} samples and min_support={min_support}, "
+                  f"patterns may appear in as few as {min_count:.1f} samples. "
+                  f"Consider increasing min_support for more robust patterns.")
         
         self.frequent_itemsets = apriori(self.binary_data, min_support=min_support,
                                          use_colnames=True, max_len=max_len)
@@ -567,7 +578,10 @@ class AssociationRuleMining:
         Run FP-Growth algorithm to find frequent itemsets.
         
         Args:
-            min_support: Minimum support threshold
+            min_support: Minimum support threshold. Default 0.02 (2%) is chosen to 
+                        capture co-resistance patterns occurring in at least ~10 samples
+                        for datasets of ~500 isolates. For smaller datasets, consider 
+                        increasing this threshold (e.g., 0.05-0.10).
             max_len: Maximum itemset length
             
         Returns:
@@ -575,6 +589,14 @@ class AssociationRuleMining:
         """
         if self.binary_data is None:
             self.prepare_binary_data()
+        
+        # Adaptive min_support warning for small datasets
+        n_samples = len(self.binary_data)
+        min_count = n_samples * min_support
+        if min_count < 5:
+            print(f"Warning: With {n_samples} samples and min_support={min_support}, "
+                  f"patterns may appear in as few as {min_count:.1f} samples. "
+                  f"Consider increasing min_support for more robust patterns.")
         
         self.frequent_itemsets = fpgrowth(self.binary_data, min_support=min_support,
                                           use_colnames=True, max_len=max_len)

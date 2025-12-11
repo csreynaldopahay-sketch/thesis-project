@@ -422,18 +422,34 @@ AMR Pattern Recognition Analysis Report
             results: Results dictionary to export
             filename: Output filename
         """
+        from datetime import datetime
+        
         # Convert to JSON-serializable format
         def convert(obj):
+            """Convert non-JSON-serializable objects to serializable format."""
             if isinstance(obj, np.ndarray):
                 return obj.tolist()
             elif isinstance(obj, pd.DataFrame):
                 return obj.to_dict()
-            elif isinstance(obj, (np.int64, np.int32)):
+            elif isinstance(obj, pd.Series):
+                return obj.to_dict()
+            elif isinstance(obj, (np.int64, np.int32, np.int16, np.int8)):
                 return int(obj)
-            elif isinstance(obj, (np.float64, np.float32)):
+            elif isinstance(obj, (np.float64, np.float32, np.float16)):
                 return float(obj)
+            elif isinstance(obj, np.bool_):
+                return bool(obj)
+            elif isinstance(obj, datetime):
+                return obj.isoformat()
+            elif hasattr(obj, '__dict__'):
+                # For custom objects, try to get their dict representation
+                return f"<{type(obj).__name__}>"
             else:
-                return str(obj)
+                # For any other type, convert to string representation
+                try:
+                    return str(obj)
+                except Exception:
+                    return f"<non-serializable: {type(obj).__name__}>"
         
         filepath = self.output_dir / filename
         

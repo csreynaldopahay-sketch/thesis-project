@@ -11,7 +11,7 @@ import pandas as pd
 import numpy as np
 import joblib
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, Tuple
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -70,7 +70,7 @@ class AMRPredictionPipeline:
         """Set the feature columns used by the models."""
         self.feature_cols = feature_cols
     
-    def preprocess_input(self, resistance_profile: Dict[str, str]) -> np.ndarray:
+    def preprocess_input(self, resistance_profile: Dict[str, str]) -> Tuple[np.ndarray, List[str]]:
         """
         Preprocess resistance profile input.
         
@@ -78,12 +78,13 @@ class AMRPredictionPipeline:
             resistance_profile: Dictionary mapping antibiotic names to interpretations (s/i/r)
             
         Returns:
-            Numpy array of encoded features
+            Tuple of (numpy array of encoded features, list of warnings)
         """
         if self.feature_cols is None:
             raise ValueError("Feature columns not set. Call set_feature_columns first.")
         
         features = []
+        warnings = []
         
         for col in self.feature_cols:
             # Extract antibiotic name from encoded column name
@@ -99,11 +100,17 @@ class AMRPredictionPipeline:
             # Encode the value
             if value in self.encoding_map:
                 features.append(self.encoding_map[value])
-            else:
-                # Default to susceptible if unknown
+            elif value is None:
+                # Missing antibiotic - default to susceptible but warn
                 features.append(0)
+                warnings.append(f"Missing value for '{antibiotic}', defaulting to susceptible (s)")
+            else:
+                # Invalid value - default to susceptible but warn
+                features.append(0)
+                warnings.append(f"Invalid value '{value}' for '{antibiotic}', defaulting to susceptible (s). "
+                              f"Valid values are: s (susceptible), i (intermediate), r (resistant)")
         
-        return np.array(features).reshape(1, -1)
+        return np.array(features).reshape(1, -1), warnings
     
     def predict_mdr(self, resistance_profile: Dict[str, str]) -> Dict:
         """
@@ -118,7 +125,7 @@ class AMRPredictionPipeline:
         if self.mar_model is None:
             raise ValueError("MAR model not loaded. Call load_models first.")
         
-        X = self.preprocess_input(resistance_profile)
+        X, warnings = self.preprocess_input(resistance_profile)
         
         prediction = self.mar_model.predict(X)[0]
         
@@ -126,6 +133,10 @@ class AMRPredictionPipeline:
             'mdr_prediction': 'High MAR (MDR)' if prediction == 1 else 'Low MAR',
             'mdr_class': int(prediction)
         }
+        
+        # Include warnings if any invalid values were encountered
+        if warnings:
+            result['warnings'] = warnings
         
         # Get probability if available
         if hasattr(self.mar_model, 'predict_proba'):
@@ -151,13 +162,17 @@ class AMRPredictionPipeline:
         if self.species_model is None:
             raise ValueError("Species model not loaded. Call load_models first.")
         
-        X = self.preprocess_input(resistance_profile)
+        X, warnings = self.preprocess_input(resistance_profile)
         
         prediction = self.species_model.predict(X)[0]
         
         result = {
             'species_prediction': str(prediction)
         }
+        
+        # Include warnings if any invalid values were encountered
+        if warnings:
+            result['warnings'] = warnings
         
         # Get probability if available
         if hasattr(self.species_model, 'predict_proba'):

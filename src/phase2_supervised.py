@@ -58,10 +58,20 @@ class SupervisedClassification:
         self.label_encoder = None
         
     def _initialize_models(self) -> Dict:
-        """Initialize all 6 classifiers."""
+        """
+        Initialize all 6 classifiers with default hyperparameters.
+        
+        Note: Hyperparameters are set to reasonable defaults for AMR data:
+        - Random Forest: n_estimators=100 provides good balance of accuracy and speed,
+          max_depth=10 prevents overfitting on high-dimensional resistance data
+        - XGBoost: Similar settings for consistency and interpretability
+        - For production use, consider GridSearchCV or RandomizedSearchCV for tuning
+        """
         models = {
             'random_forest': RandomForestClassifier(
-                n_estimators=100, max_depth=10, random_state=self.random_state
+                n_estimators=100,  # Sufficient trees for stable feature importance
+                max_depth=10,      # Prevents overfitting with many antibiotic features
+                random_state=self.random_state
             ),
             'logistic_regression': LogisticRegression(
                 max_iter=1000, random_state=self.random_state
