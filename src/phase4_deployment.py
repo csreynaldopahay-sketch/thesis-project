@@ -16,6 +16,44 @@ import warnings
 warnings.filterwarnings('ignore')
 
 
+# MDR threshold constant - bacteria with MAR > 0.17 are considered multi-drug resistant
+# This corresponds to resistance to ~4 antibiotics out of 22-23 tested
+# This threshold is shared across the module to ensure consistency
+MDR_THRESHOLD = 0.17
+
+
+def calculate_mar_index_from_profile(resistance_profile: Dict[str, str]) -> Tuple[float, int, int]:
+    """
+    Calculate MAR (Multiple Antibiotic Resistance) Index from resistance profile.
+    
+    MAR Index = number of resistant antibiotics / total antibiotics tested
+    MDR is defined as MAR > 0.17 (resistance to ~4+ antibiotics)
+    
+    This is a shared utility function used by:
+    - AMRPredictionPipeline class
+    - Streamlit web application
+    - FastAPI REST API
+    
+    Args:
+        resistance_profile: Dictionary mapping antibiotic names to interpretations (s/i/r/n)
+        
+    Returns:
+        Tuple of (mar_index, resistant_count, total_tested)
+    """
+    resistant_count = 0
+    total_tested = 0
+    
+    for antibiotic, value in resistance_profile.items():
+        value_lower = value.lower().strip()
+        if value_lower in ['s', 'i', 'r']:  # Only count tested antibiotics
+            total_tested += 1
+            if value_lower == 'r':
+                resistant_count += 1
+    
+    mar_index = resistant_count / total_tested if total_tested > 0 else 0.0
+    return mar_index, resistant_count, total_tested
+
+
 class AMRPredictionPipeline:
     """
     Prediction pipeline for AMR analysis.
@@ -136,18 +174,8 @@ class AMRPredictionPipeline:
         Returns:
             Tuple of (mar_index, resistant_count, total_tested)
         """
-        resistant_count = 0
-        total_tested = 0
-        
-        for antibiotic, value in resistance_profile.items():
-            value_lower = value.lower().strip()
-            if value_lower in ['s', 'i', 'r']:  # Only count tested antibiotics
-                total_tested += 1
-                if value_lower == 'r':
-                    resistant_count += 1
-        
-        mar_index = resistant_count / total_tested if total_tested > 0 else 0.0
-        return mar_index, resistant_count, total_tested
+        # Delegate to module-level function to avoid code duplication
+        return calculate_mar_index_from_profile(resistance_profile)
     
     def predict_mdr(self, resistance_profile: Dict[str, str]) -> Dict:
         """
@@ -351,10 +379,14 @@ def preprocess_input(resistance_profile):
 
 def calculate_mar_index(resistance_profile):
     """
-    Calculate MAR (Multiple Antibiotic Resistance) Index.
+    Calculate MAR (Multiple Antibiotic Resistance) Index for Streamlit app.
     
     MAR Index = resistant_count / antibiotics_tested
     MDR is defined as MAR > 0.17 (resistance to ~4+ antibiotics)
+    
+    Note: This function is specific to the Streamlit app and iterates over the 
+    ANTIBIOTICS list to ensure consistent ordering with the UI inputs.
+    For general use, see calculate_mar_index_from_profile() module function.
     """
     resistant_count = 0
     tested_count = 0
@@ -632,10 +664,14 @@ MDR_THRESHOLD = 0.17
 
 def calculate_mar_index(antibiotics: Dict[str, str]):
     """
-    Calculate MAR (Multiple Antibiotic Resistance) Index.
+    Calculate MAR (Multiple Antibiotic Resistance) Index for FastAPI.
     
     MAR Index = resistant_count / antibiotics_tested
     MDR is defined as MAR > 0.17 (resistance to ~4+ antibiotics)
+    
+    Note: This function is local to the FastAPI app code since it's written
+    to a separate file during deployment. The logic mirrors the module-level
+    calculate_mar_index_from_profile() function.
     """
     resistant_count = 0
     tested_count = 0
