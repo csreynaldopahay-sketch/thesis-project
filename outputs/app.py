@@ -61,7 +61,7 @@ with tab1:
         with [col1, col2, col3][i % 3]:
             value = st.selectbox(
                 antibiotic.replace("_", " ").title(),
-                options=["S (Susceptible)", "I (Intermediate)", "R (Resistant)"],
+                options=["S (Susceptible)", "I (Intermediate)", "R (Resistant)", "N (Not Tested)"],
                 key=f"ab_{antibiotic}"
             )
             resistance_profile[antibiotic] = value[0].lower()

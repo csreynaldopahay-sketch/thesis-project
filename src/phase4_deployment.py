@@ -39,7 +39,7 @@ class AMRPredictionPipeline:
         self.mar_model = None
         self.species_model = None
         self.feature_cols = None
-        self.encoding_map = {'s': 0, 'i': 1, 'r': 2}
+        self.encoding_map = {'s': 0, 'i': 1, 'r': 2, 'n': 0}  # 'n' (not tested) defaults to susceptible
         self.reverse_encoding = {0: 's', 1: 'i', 2: 'r'}
         
     def load_models(self, mar_model_name: str = 'random_forest',
@@ -100,6 +100,9 @@ class AMRPredictionPipeline:
             # Encode the value
             if value in self.encoding_map:
                 features.append(self.encoding_map[value])
+                if value == 'n':
+                    # Note that this antibiotic was not tested
+                    warnings.append(f"'{antibiotic}' was not tested, defaulting to susceptible (s)")
             elif value is None:
                 # Missing antibiotic - default to susceptible but warn
                 features.append(0)
@@ -108,7 +111,7 @@ class AMRPredictionPipeline:
                 # Invalid value - default to susceptible but warn
                 features.append(0)
                 warnings.append(f"Invalid value '{value}' for '{antibiotic}', defaulting to susceptible (s). "
-                              f"Valid values are: s (susceptible), i (intermediate), r (resistant)")
+                              f"Valid values are: s (susceptible), i (intermediate), r (resistant), n (not tested)")
         
         return np.array(features).reshape(1, -1), warnings
     
@@ -274,7 +277,7 @@ with tab1:
         with [col1, col2, col3][i % 3]:
             value = st.selectbox(
                 antibiotic.replace("_", " ").title(),
-                options=["S (Susceptible)", "I (Intermediate)", "R (Resistant)"],
+                options=["S (Susceptible)", "I (Intermediate)", "R (Resistant)", "N (Not Tested)"],
                 key=f"ab_{antibiotic}"
             )
             resistance_profile[antibiotic] = value[0].lower()
@@ -383,7 +386,7 @@ mar_model = None
 species_model = None
 
 # Encoding map
-ENCODING_MAP = {'s': 0, 'i': 1, 'r': 2}
+ENCODING_MAP = {'s': 0, 'i': 1, 'r': 2, 'n': 0}  # 'n' (not tested) defaults to susceptible
 
 
 class ResistanceProfile(BaseModel):
