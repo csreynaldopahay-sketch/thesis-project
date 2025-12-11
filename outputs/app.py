@@ -19,18 +19,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# Define feature columns (must match the order used during training)
-FEATURE_COLS = [
-    "ampicillin_encoded", "amoxicillin/clavulanic_acid_encoded", "ceftaroline_encoded",
-    "cefalexin_encoded", "cefalotin_encoded", "cefpodoxime_encoded", "cefotaxime_encoded",
-    "cefovecin_encoded", "ceftiofur_encoded", "ceftazidime/avibactam_encoded",
-    "imepenem_encoded", "amikacin_encoded", "gentamicin_encoded", "neomycin_encoded",
-    "nalidixic_acid_encoded", "enrofloxacin_encoded", "marbofloxacin_encoded",
-    "pradofloxacin_encoded", "doxycycline_encoded", "tetracycline_encoded",
-    "nitrofurantoin_encoded", "chloramphenicol_encoded", "trimethoprim/sulfamethazole_encoded"
-]
-
-# Define antibiotics for display (matching the feature columns order)
+# Define antibiotics for display (order must match the feature columns used during training)
 ANTIBIOTICS = [
     "ampicillin", "amoxicillin/clavulanic_acid", "ceftaroline", "cefalexin",
     "cefalotin", "cefpodoxime", "cefotaxime", "cefovecin", "ceftiofur",
@@ -64,11 +53,17 @@ def load_models(model_type):
     mar_path = models_dir / f"mar_{model_type}.pkl"
     species_path = models_dir / f"species_{model_type}.pkl"
     
-    if mar_path.exists():
-        mar_model = joblib.load(mar_path)
+    try:
+        if mar_path.exists():
+            mar_model = joblib.load(mar_path)
+    except Exception as e:
+        st.warning(f"Failed to load MAR model: {e}")
     
-    if species_path.exists():
-        species_model = joblib.load(species_path)
+    try:
+        if species_path.exists():
+            species_model = joblib.load(species_path)
+    except Exception as e:
+        st.warning(f"Failed to load species model: {e}")
     
     return mar_model, species_model
 
@@ -244,7 +239,7 @@ with tab3:
     
     # Create sample data for visualization
     sample_data = pd.DataFrame({
-        'Antibiotic': [a.replace("_", " ").replace("/", "/\\n").title() for a in ANTIBIOTICS[:10]],
+        'Antibiotic': [a.replace("_", " ").replace("/", " / ").title() for a in ANTIBIOTICS[:10]],
         'Resistance Rate': np.random.random(10) * 100
     })
     
