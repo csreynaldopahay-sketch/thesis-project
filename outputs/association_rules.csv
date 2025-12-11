@@ -1,0 +1,21 @@
+antecedents,consequents,support,confidence,lift
+"gentamicin_resistant, cefalexin_resistant",amikacin_resistant,0.045627376425855515,0.9600000000000001,21.040000000000003
+"gentamicin_resistant, cefalexin_resistant","amikacin_resistant, cefalotin_resistant",0.043726235741444866,0.92,21.040000000000003
+amikacin_resistant,"gentamicin_resistant, cefalexin_resistant",0.045627376425855515,1.0,21.040000000000003
+"amikacin_resistant, cefalotin_resistant","gentamicin_resistant, cefalexin_resistant",0.043726235741444866,1.0,21.040000000000003
+amikacin_resistant,"cefalexin_resistant, gentamicin_resistant, cefalotin_resistant",0.043726235741444866,0.9583333333333333,21.00347222222222
+"amikacin_resistant, cefalexin_resistant","gentamicin_resistant, cefalotin_resistant",0.043726235741444866,0.9583333333333333,21.00347222222222
+amikacin_resistant,"gentamicin_resistant, cefalotin_resistant",0.043726235741444866,0.9583333333333333,21.00347222222222
+"gentamicin_resistant, cefalotin_resistant","amikacin_resistant, cefalexin_resistant",0.043726235741444866,0.9583333333333333,21.00347222222222
+"cefalexin_resistant, gentamicin_resistant, cefalotin_resistant",amikacin_resistant,0.043726235741444866,0.9583333333333333,21.00347222222222
+"gentamicin_resistant, cefalotin_resistant",amikacin_resistant,0.043726235741444866,0.9583333333333333,21.00347222222222
+"ceftiofur_resistant, doxycycline_resistant","tetracycline_resistant, trimethoprim/sulfamethazole_resistant, cefalexin_resistant",0.024714828897338403,0.8666666666666666,20.721212121212123
+"tetracycline_resistant, trimethoprim/sulfamethazole_resistant, cefalexin_resistant","ceftiofur_resistant, doxycycline_resistant",0.024714828897338403,0.5909090909090909,20.721212121212123
+gentamicin_resistant,"cefalexin_resistant, amikacin_resistant, cefalotin_resistant",0.043726235741444866,0.8846153846153846,20.23076923076923
+gentamicin_resistant,"amikacin_resistant, cefalexin_resistant",0.045627376425855515,0.9230769230769231,20.23076923076923
+"amikacin_resistant, cefalexin_resistant",gentamicin_resistant,0.045627376425855515,1.0,20.23076923076923
+"amikacin_resistant, cefalotin_resistant",gentamicin_resistant,0.043726235741444866,1.0,20.23076923076923
+gentamicin_resistant,"amikacin_resistant, cefalotin_resistant",0.043726235741444866,0.8846153846153846,20.23076923076923
+gentamicin_resistant,amikacin_resistant,0.045627376425855515,0.9230769230769231,20.23076923076923
+"cefalexin_resistant, amikacin_resistant, cefalotin_resistant",gentamicin_resistant,0.043726235741444866,1.0,20.23076923076923
+amikacin_resistant,gentamicin_resistant,0.045627376425855515,1.0,20.23076923076923

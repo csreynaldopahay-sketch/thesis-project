@@ -1,0 +1,48 @@
+======================================================================
+PHASE 3: MODEL COMPARISON & INTERPRETATION REPORT
+======================================================================
+
+1. HIGH MAR (MDR) PREDICTION
+
+----------------------------------------
+ Rank               Model Accuracy Precision Recall F1-Score
+    1       random_forest   1.0000    1.0000 1.0000   1.0000
+    2 logistic_regression   1.0000    1.0000 1.0000   1.0000
+    3                 svm   1.0000    1.0000 1.0000   1.0000
+    4                 knn   1.0000    1.0000 1.0000   1.0000
+    5             xgboost   1.0000    1.0000 1.0000   1.0000
+    6         naive_bayes   0.9434    0.5714 1.0000   0.7273
+
+Best Model: random_forest
+
+
+2. SPECIES CLASSIFICATION
+
+----------------------------------------
+ Rank               Model Accuracy Precision Recall F1-Score
+    1       random_forest   0.8113    0.8027 0.8113   0.8016
+    2             xgboost   0.8113    0.8027 0.8113   0.8016
+    3                 svm   0.8113    0.7845 0.8113   0.7934
+    4 logistic_regression   0.7925    0.7828 0.7925   0.7819
+    5                 knn   0.7925    0.7477 0.7925   0.7667
+    6         naive_bayes   0.1698    0.3933 0.1698   0.1816
+
+Best Model: random_forest
+
+
+3. MODEL SELECTION CRITERIA
+
+----------------------------------------
+
+The final model selection is based on:
+- F1-score (primary): Best balance of precision and recall
+- Precision/Recall balance: Important for AMR data with potential class imbalance
+- Biological plausibility: Results should make biological sense
+- Interpretability: Ability to understand model decisions
+        
+
+4. FINAL MODEL SELECTIONS
+
+----------------------------------------
+MAR/MDR Prediction: random_forest
+Species Classification: random_forest

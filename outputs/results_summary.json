@@ -1,0 +1,37 @@
+{
+  "statistics": {
+    "total_samples": 526,
+    "num_species": 13,
+    "num_regions": 3,
+    "num_antibiotics": 23,
+    "mar_index_stats": {
+      "count": 526.0,
+      "mean": 0.11156692015209126,
+      "std": 0.10712982639601039,
+      "min": 0.0,
+      "25%": 0.0455,
+      "50%": 0.0909,
+      "75%": 0.1579,
+      "max": 0.7143
+    },
+    "species_distribution": {
+      "escherichia_coli": 228,
+      "klebsiella_pneumoniae_ssp_pneumoniae": 146,
+      "enterobacter_cloacae_complex": 69,
+      "enterobacter_aerogenes": 23,
+      "salmonella_group": 22,
+      "pseudomonas_aeruginosa": 17,
+      "vibrio_fluvialis": 8,
+      "vibrio_cholerae": 6,
+      "klebsiella_pneumoniae_ssp_ozaenae": 2,
+      "salmonella_enterica_spp_diarizonae": 2,
+      "vibrio_vulnificus": 1,
+      "acinetobacter_baumannii": 1,
+      "klebsiella_pneumoniae_spp_ozaenae": 1
+    },
+    "high_mar_distribution": {
+      "0": 485,
+      "1": 41
+    }
+  }
+}
