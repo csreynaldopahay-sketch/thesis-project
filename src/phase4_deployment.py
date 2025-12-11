@@ -236,6 +236,64 @@ st.set_page_config(
     layout="wide"
 )
 
+# Define antibiotics for display (order must match the feature columns used during training)
+ANTIBIOTICS = [
+    "ampicillin", "amoxicillin/clavulanic_acid", "ceftaroline", "cefalexin",
+    "cefalotin", "cefpodoxime", "cefotaxime", "cefovecin", "ceftiofur",
+    "ceftazidime/avibactam", "imepenem", "amikacin", "gentamicin", "neomycin",
+    "nalidixic_acid", "enrofloxacin", "marbofloxacin", "pradofloxacin",
+    "doxycycline", "tetracycline", "nitrofurantoin", "chloramphenicol",
+    "trimethoprim/sulfamethazole"
+]
+
+# Encoding map for resistance values
+ENCODING_MAP = {'s': 0, 'i': 1, 'r': 2, 'n': 0}  # 'n' (not tested) defaults to susceptible
+
+# Model name mapping
+MODEL_NAME_MAP = {
+    "Random Forest": "random_forest",
+    "XGBoost": "xgboost",
+    "Logistic Regression": "logistic_regression",
+    "SVM": "svm",
+    "KNN": "knn",
+    "Naive Bayes": "naive_bayes"
+}
+
+
+@st.cache_resource
+def load_models(model_type):
+    """Load trained models from disk."""
+    models_dir = Path("models")
+    mar_model = None
+    species_model = None
+    
+    mar_path = models_dir / f"mar_{model_type}.pkl"
+    species_path = models_dir / f"species_{model_type}.pkl"
+    
+    try:
+        if mar_path.exists():
+            mar_model = joblib.load(mar_path)
+    except Exception as e:
+        st.warning(f"Failed to load MAR model: {e}")
+    
+    try:
+        if species_path.exists():
+            species_model = joblib.load(species_path)
+    except Exception as e:
+        st.warning(f"Failed to load species model: {e}")
+    
+    return mar_model, species_model
+
+
+def preprocess_input(resistance_profile):
+    """Convert resistance profile to feature array for model prediction."""
+    features = []
+    for antibiotic in ANTIBIOTICS:
+        value = resistance_profile.get(antibiotic, 's').lower()
+        features.append(ENCODING_MAP.get(value, 0))
+    return np.array(features).reshape(1, -1)
+
+
 # Title and description
 st.title("🦠 AMR Pattern Recognition System")
 st.markdown("""
@@ -253,15 +311,15 @@ model_option = st.sidebar.selectbox(
     ["Random Forest", "XGBoost", "Logistic Regression", "SVM", "KNN", "Naive Bayes"]
 )
 
-# Define antibiotics (these should match your dataset)
-ANTIBIOTICS = [
-    "ampicillin", "amoxicillin_clavulanic_acid", "ceftaroline", "cefalexin",
-    "cefalotin", "cefpodoxime", "cefotaxime", "cefovecin", "ceftiofur",
-    "ceftazidime_avibactam", "imepenem", "amikacin", "gentamicin", "neomycin",
-    "nalidixic_acid", "enrofloxacin", "marbofloxacin", "pradofloxacin",
-    "doxycycline", "tetracycline", "nitrofurantoin", "chloramphenicol",
-    "trimethoprim_sulfamethazole"
-]
+# Load models based on selection
+model_type = MODEL_NAME_MAP[model_option]
+mar_model, species_model = load_models(model_type)
+
+# Show model status in sidebar
+st.sidebar.markdown("---")
+st.sidebar.markdown("**Model Status:**")
+st.sidebar.write(f"MDR Model: {'✅ Loaded' if mar_model else '❌ Not found'}")
+st.sidebar.write(f"Species Model: {'✅ Loaded' if species_model else '❌ Not found'}")
 
 # Main tabs
 tab1, tab2, tab3 = st.tabs(["📝 Manual Input", "📂 File Upload", "📊 Results Visualization"])
@@ -276,7 +334,7 @@ with tab1:
     for i, antibiotic in enumerate(ANTIBIOTICS):
         with [col1, col2, col3][i % 3]:
             value = st.selectbox(
-                antibiotic.replace("_", " ").title(),
+                antibiotic.replace("_", " ").replace("/", " / ").title(),
                 options=["S (Susceptible)", "I (Intermediate)", "R (Resistant)", "N (Not Tested)"],
                 key=f"ab_{antibiotic}"
             )
@@ -285,22 +343,62 @@ with tab1:
     if st.button("🔮 Predict", type="primary"):
         st.subheader("Prediction Results")
         
-        # Placeholder for predictions (would use loaded model in production)
+        # Preprocess input
+        X = preprocess_input(resistance_profile)
+        
         col1, col2 = st.columns(2)
         
         with col1:
-            st.metric(
-                label="MDR Prediction",
-                value="High MAR (MDR)" if sum(1 for v in resistance_profile.values() if v == 'r') > 5 else "Low MAR",
-                delta="Based on resistance profile"
-            )
+            if mar_model is not None:
+                mar_pred = mar_model.predict(X)[0]
+                mar_label = "High MAR (MDR)" if mar_pred == 1 else "Low MAR"
+                
+                if hasattr(mar_model, 'predict_proba'):
+                    mar_proba = mar_model.predict_proba(X)[0]
+                    mar_confidence = max(mar_proba) * 100
+                    st.metric(
+                        label="MDR Prediction",
+                        value=mar_label,
+                        delta=f"{mar_confidence:.1f}% confidence"
+                    )
+                else:
+                    st.metric(
+                        label="MDR Prediction",
+                        value=mar_label,
+                        delta="Based on resistance profile"
+                    )
+            else:
+                st.warning("MDR model not loaded. Please check if model files exist in 'models/' directory.")
         
         with col2:
-            st.metric(
-                label="Predicted Species",
-                value="E. coli",
-                delta="85% confidence"
-            )
+            if species_model is not None:
+                species_pred = species_model.predict(X)[0]
+                
+                if hasattr(species_model, 'predict_proba'):
+                    species_proba = species_model.predict_proba(X)[0]
+                    species_confidence = max(species_proba) * 100
+                    st.metric(
+                        label="Predicted Species",
+                        value=str(species_pred).replace("_", " ").title(),
+                        delta=f"{species_confidence:.1f}% confidence"
+                    )
+                    
+                    # Show top 3 predictions
+                    st.markdown("**Top 3 Predictions:**")
+                    classes = species_model.classes_
+                    top_indices = np.argsort(species_proba)[-3:][::-1]
+                    for idx in top_indices:
+                        species_name = str(classes[idx]).replace("_", " ").title()
+                        prob = species_proba[idx] * 100
+                        st.write(f"- {species_name}: {prob:.1f}%")
+                else:
+                    st.metric(
+                        label="Predicted Species",
+                        value=str(species_pred).replace("_", " ").title(),
+                        delta="Based on resistance profile"
+                    )
+            else:
+                st.warning("Species model not loaded. Please check if model files exist in 'models/' directory.")
 
 with tab2:
     st.header("Upload Resistance Data")
@@ -316,7 +414,39 @@ with tab2:
         st.dataframe(df.head())
         
         if st.button("🔮 Predict All", type="primary"):
-            st.info("Batch prediction would be performed here with loaded models")
+            if mar_model is None and species_model is None:
+                st.error("No models loaded. Please check if model files exist.")
+            else:
+                # Try to extract features from uploaded data
+                results = []
+                for idx, row in df.iterrows():
+                    profile = {}
+                    for antibiotic in ANTIBIOTICS:
+                        # Try different column name formats
+                        col_name = f"{antibiotic}_int"
+                        if col_name in row:
+                            profile[antibiotic] = str(row[col_name]).lower()
+                        elif antibiotic in row:
+                            profile[antibiotic] = str(row[antibiotic]).lower()
+                        else:
+                            profile[antibiotic] = 's'  # Default to susceptible
+                    
+                    X = preprocess_input(profile)
+                    result = {'index': idx}
+                    
+                    if mar_model is not None:
+                        mar_pred = mar_model.predict(X)[0]
+                        result['mdr_prediction'] = "High MAR" if mar_pred == 1 else "Low MAR"
+                    
+                    if species_model is not None:
+                        species_pred = species_model.predict(X)[0]
+                        result['species_prediction'] = str(species_pred)
+                    
+                    results.append(result)
+                
+                results_df = pd.DataFrame(results)
+                st.success(f"Predictions completed for {len(results)} samples!")
+                st.dataframe(results_df)
 
 with tab3:
     st.header("Results Visualization")
@@ -326,7 +456,7 @@ with tab3:
     
     # Create sample data for visualization
     sample_data = pd.DataFrame({
-        'Antibiotic': ANTIBIOTICS[:10],
+        'Antibiotic': [a.replace("_", " ").replace("/", " / ").title() for a in ANTIBIOTICS[:10]],
         'Resistance Rate': np.random.random(10) * 100
     })
     
