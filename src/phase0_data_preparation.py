@@ -181,15 +181,17 @@ class DataPreparation:
         return df
     
     def create_target_variables(self, 
-                                mar_threshold: float = 0.3,
+                                mar_threshold: float = 0.17,
                                 min_species_samples: int = 10,
                                 other_label: str = 'other') -> pd.DataFrame:
         """
         PHASE 0.3: Create the supervised target variables
         
-        1. High MAR index prediction:
-           - Set threshold (MAR > 0.3)
-           - Convert into binary target (High MAR = 1, Low MAR = 0)
+        1. High MAR index prediction (MDR - Multi-Drug Resistance):
+           - Set threshold (MAR > 0.17) - aligned with traditional MDR definition
+           - A bacterium is considered multi-drug resistant if MAR > 0.17
+           - This threshold corresponds to resistance to ~4 antibiotics out of 22-23 tested
+           - Convert into binary target (MDR/High MAR = 1, Non-MDR/Low MAR = 0)
            
         2. Species classification:
            - Keep only species with enough samples
@@ -208,12 +210,14 @@ class DataPreparation:
             
         df = self.encoded_data.copy()
         
-        # 1. Create High MAR target variable
+        # 1. Create High MAR target variable (MDR classification)
         if 'mar_index' in df.columns:
             df['high_mar'] = (df['mar_index'] > mar_threshold).astype(int)
             high_mar_count = df['high_mar'].sum()
             low_mar_count = len(df) - high_mar_count
-            print(f"High MAR (>{mar_threshold}): {high_mar_count}, Low MAR: {low_mar_count}")
+            print(f"MDR Classification (MAR > {mar_threshold}):")
+            print(f"  MDR (High MAR): {high_mar_count} samples")
+            print(f"  Non-MDR (Low MAR): {low_mar_count} samples")
         else:
             print("Warning: mar_index column not found. Cannot create high_mar target.")
             df['high_mar'] = np.nan

@@ -16,6 +16,44 @@ import warnings
 warnings.filterwarnings('ignore')
 
 
+# MDR threshold constant - bacteria with MAR > 0.17 are considered multi-drug resistant
+# This corresponds to resistance to ~4 antibiotics out of 22-23 tested
+# This threshold is shared across the module to ensure consistency
+MDR_THRESHOLD = 0.17
+
+
+def calculate_mar_index_from_profile(resistance_profile: Dict[str, str]) -> Tuple[float, int, int]:
+    """
+    Calculate MAR (Multiple Antibiotic Resistance) Index from resistance profile.
+    
+    MAR Index = number of resistant antibiotics / total antibiotics tested
+    MDR is defined as MAR > 0.17 (resistance to ~4+ antibiotics)
+    
+    This is a shared utility function used by:
+    - AMRPredictionPipeline class
+    - Streamlit web application
+    - FastAPI REST API
+    
+    Args:
+        resistance_profile: Dictionary mapping antibiotic names to interpretations (s/i/r/n)
+        
+    Returns:
+        Tuple of (mar_index, resistant_count, total_tested)
+    """
+    resistant_count = 0
+    total_tested = 0
+    
+    for antibiotic, value in resistance_profile.items():
+        value_lower = value.lower().strip()
+        if value_lower in ['s', 'i', 'r']:  # Only count tested antibiotics
+            total_tested += 1
+            if value_lower == 'r':
+                resistant_count += 1
+    
+    mar_index = resistant_count / total_tested if total_tested > 0 else 0.0
+    return mar_index, resistant_count, total_tested
+
+
 class AMRPredictionPipeline:
     """
     Prediction pipeline for AMR analysis.
@@ -23,10 +61,19 @@ class AMRPredictionPipeline:
     Handles:
     - Model loading
     - Input preprocessing
-    - MDR/MAR prediction
+    - MDR/MAR prediction (MAR > 0.17 threshold)
     - Species prediction
     - Feature extraction
+    
+    MDR Definition:
+    - A bacterium is considered multi-drug resistant (MDR) if its MAR index > 0.17
+    - This aligns with the traditional definition of resistance to ≥4 antibiotics
+    - MAR (Multiple Antibiotic Resistance) Index = resistant_count / antibiotics_tested
     """
+    
+    # MDR threshold constant - bacteria with MAR > 0.17 are considered MDR
+    # This corresponds to resistance to ~4 antibiotics out of 22-23 tested
+    MDR_THRESHOLD = 0.17
     
     def __init__(self, models_dir: str = 'outputs/models'):
         """
@@ -115,15 +162,39 @@ class AMRPredictionPipeline:
         
         return np.array(features).reshape(1, -1), warnings
     
-    def predict_mdr(self, resistance_profile: Dict[str, str]) -> Dict:
+    def calculate_mar_index(self, resistance_profile: Dict[str, str]) -> Tuple[float, int, int]:
         """
-        Predict MDR status from resistance profile.
+        Calculate MAR (Multiple Antibiotic Resistance) Index from resistance profile.
+        
+        MAR Index = number of resistant antibiotics / total antibiotics tested
         
         Args:
             resistance_profile: Dictionary mapping antibiotic names to interpretations
             
         Returns:
-            Dictionary with prediction results
+            Tuple of (mar_index, resistant_count, total_tested)
+        """
+        # Delegate to module-level function to avoid code duplication
+        return calculate_mar_index_from_profile(resistance_profile)
+    
+    def predict_mdr(self, resistance_profile: Dict[str, str]) -> Dict:
+        """
+        Predict MDR status from resistance profile.
+        
+        MDR (Multi-Drug Resistance) is determined using MAR index > 0.17 threshold.
+        A bacterium is considered MDR if it is resistant to approximately 4 or more
+        different antibiotics out of 22-23 typically tested.
+        
+        Args:
+            resistance_profile: Dictionary mapping antibiotic names to interpretations
+            
+        Returns:
+            Dictionary with prediction results including:
+            - mdr_prediction: Human-readable MDR status
+            - mdr_class: Binary class (1 = MDR, 0 = Non-MDR)
+            - mar_index: Calculated MAR index
+            - resistant_count: Number of resistant antibiotics
+            - mdr_threshold: The threshold used (0.17)
         """
         if self.mar_model is None:
             raise ValueError("MAR model not loaded. Call load_models first.")
@@ -132,9 +203,17 @@ class AMRPredictionPipeline:
         
         prediction = self.mar_model.predict(X)[0]
         
+        # Calculate actual MAR index for transparency
+        mar_index, resistant_count, total_tested = self.calculate_mar_index(resistance_profile)
+        
         result = {
-            'mdr_prediction': 'High MAR (MDR)' if prediction == 1 else 'Low MAR',
-            'mdr_class': int(prediction)
+            'mdr_prediction': 'MDR (Multi-Drug Resistant)' if prediction == 1 else 'Non-MDR',
+            'mdr_class': int(prediction),
+            'mar_index': round(mar_index, 4),
+            'resistant_count': resistant_count,
+            'antibiotics_tested': total_tested,
+            'mdr_threshold': self.MDR_THRESHOLD,
+            'mdr_explanation': f"MAR Index {mar_index:.4f} {'>' if mar_index > self.MDR_THRESHOLD else '<='} {self.MDR_THRESHOLD} threshold"
         }
         
         # Include warnings if any invalid values were encountered
@@ -146,8 +225,8 @@ class AMRPredictionPipeline:
             proba = self.mar_model.predict_proba(X)[0]
             result['confidence'] = float(max(proba))
             result['probabilities'] = {
-                'Low MAR': float(proba[0]),
-                'High MAR (MDR)': float(proba[1])
+                'Non-MDR': float(proba[0]),
+                'MDR': float(proba[1])
             }
         
         return result
@@ -249,6 +328,10 @@ ANTIBIOTICS = [
 # Encoding map for resistance values
 ENCODING_MAP = {'s': 0, 'i': 1, 'r': 2, 'n': 0}  # 'n' (not tested) defaults to susceptible
 
+# MDR threshold - bacteria with MAR > 0.17 are considered multi-drug resistant
+# This corresponds to resistance to ~4 antibiotics out of 22-23 tested
+MDR_THRESHOLD = 0.17
+
 # Model name mapping
 MODEL_NAME_MAP = {
     "Random Forest": "random_forest",
@@ -294,6 +377,31 @@ def preprocess_input(resistance_profile):
     return np.array(features).reshape(1, -1)
 
 
+def calculate_mar_index(resistance_profile):
+    """
+    Calculate MAR (Multiple Antibiotic Resistance) Index for Streamlit app.
+    
+    MAR Index = resistant_count / antibiotics_tested
+    MDR is defined as MAR > 0.17 (resistance to ~4+ antibiotics)
+    
+    Note: This function is specific to the Streamlit app and iterates over the 
+    ANTIBIOTICS list to ensure consistent ordering with the UI inputs.
+    For general use, see calculate_mar_index_from_profile() module function.
+    """
+    resistant_count = 0
+    tested_count = 0
+    
+    for antibiotic in ANTIBIOTICS:
+        value = resistance_profile.get(antibiotic, 'n').lower()
+        if value in ['s', 'i', 'r']:  # Only count tested antibiotics
+            tested_count += 1
+            if value == 'r':
+                resistant_count += 1
+    
+    mar_index = resistant_count / tested_count if tested_count > 0 else 0.0
+    return mar_index, resistant_count, tested_count
+
+
 # Title and description
 st.title("🦠 AMR Pattern Recognition System")
 st.markdown("""
@@ -301,11 +409,15 @@ This application predicts:
 - **MDR (Multi-Drug Resistance)** status based on antibiotic resistance profiles
 - **Bacterial Species** from resistance patterns
 
+**MDR Definition:** A bacterium is considered multi-drug resistant (MDR) if its MAR index exceeds 0.17,
+which corresponds to resistance to approximately 4 or more antibiotics.
+
 Upload your data or enter antibiotic resistance values manually.
 """)
 
 # Sidebar
 st.sidebar.header("Settings")
+st.sidebar.markdown(f"**MDR Threshold:** MAR > {MDR_THRESHOLD}")
 model_option = st.sidebar.selectbox(
     "Select Model",
     ["Random Forest", "XGBoost", "Logistic Regression", "SVM", "KNN", "Naive Bayes"]
@@ -346,24 +458,46 @@ with tab1:
         # Preprocess input
         X = preprocess_input(resistance_profile)
         
+        # Calculate MAR index
+        mar_index, resistant_count, tested_count = calculate_mar_index(resistance_profile)
+        
+        # Display MAR index calculation
+        st.markdown("---")
+        st.markdown("### MAR Index Analysis")
+        mar_col1, mar_col2, mar_col3 = st.columns(3)
+        with mar_col1:
+            st.metric("Resistant Antibiotics", resistant_count)
+        with mar_col2:
+            st.metric("Antibiotics Tested", tested_count)
+        with mar_col3:
+            st.metric("MAR Index", f"{mar_index:.4f}")
+        
+        is_mdr_by_mar = mar_index > MDR_THRESHOLD
+        if is_mdr_by_mar:
+            st.warning(f"⚠️ MAR Index ({mar_index:.4f}) > {MDR_THRESHOLD} threshold → **MDR**")
+        else:
+            st.success(f"✅ MAR Index ({mar_index:.4f}) ≤ {MDR_THRESHOLD} threshold → **Non-MDR**")
+        
+        st.markdown("---")
+        st.markdown("### Model Predictions")
         col1, col2 = st.columns(2)
         
         with col1:
             if mar_model is not None:
                 mar_pred = mar_model.predict(X)[0]
-                mar_label = "High MAR (MDR)" if mar_pred == 1 else "Low MAR"
+                mar_label = "MDR (Multi-Drug Resistant)" if mar_pred == 1 else "Non-MDR"
                 
                 if hasattr(mar_model, 'predict_proba'):
                     mar_proba = mar_model.predict_proba(X)[0]
                     mar_confidence = max(mar_proba) * 100
                     st.metric(
-                        label="MDR Prediction",
+                        label="MDR Prediction (Model)",
                         value=mar_label,
                         delta=f"{mar_confidence:.1f}% confidence"
                     )
                 else:
                     st.metric(
-                        label="MDR Prediction",
+                        label="MDR Prediction (Model)",
                         value=mar_label,
                         delta="Based on resistance profile"
                     )
@@ -434,9 +568,14 @@ with tab2:
                     X = preprocess_input(profile)
                     result = {'index': idx}
                     
+                    # Calculate MAR index
+                    mar_index, resistant_count, tested_count = calculate_mar_index(profile)
+                    result['mar_index'] = round(mar_index, 4)
+                    result['resistant_count'] = resistant_count
+                    
                     if mar_model is not None:
                         mar_pred = mar_model.predict(X)[0]
-                        result['mdr_prediction'] = "High MAR" if mar_pred == 1 else "Low MAR"
+                        result['mdr_prediction'] = "MDR" if mar_pred == 1 else "Non-MDR"
                     
                     if species_model is not None:
                         species_pred = species_model.predict(X)[0]
@@ -518,6 +657,35 @@ species_model = None
 # Encoding map
 ENCODING_MAP = {'s': 0, 'i': 1, 'r': 2, 'n': 0}  # 'n' (not tested) defaults to susceptible
 
+# MDR threshold - bacteria with MAR > 0.17 are considered multi-drug resistant
+# This corresponds to resistance to ~4 antibiotics out of 22-23 tested
+MDR_THRESHOLD = 0.17
+
+
+def calculate_mar_index(antibiotics: Dict[str, str]):
+    """
+    Calculate MAR (Multiple Antibiotic Resistance) Index for FastAPI.
+    
+    MAR Index = resistant_count / antibiotics_tested
+    MDR is defined as MAR > 0.17 (resistance to ~4+ antibiotics)
+    
+    Note: This function is local to the FastAPI app code since it's written
+    to a separate file during deployment. The logic mirrors the module-level
+    calculate_mar_index_from_profile() function.
+    """
+    resistant_count = 0
+    tested_count = 0
+    
+    for antibiotic, value in antibiotics.items():
+        value_lower = value.lower().strip()
+        if value_lower in ['s', 'i', 'r']:  # Only count tested antibiotics
+            tested_count += 1
+            if value_lower == 'r':
+                resistant_count += 1
+    
+    mar_index = resistant_count / tested_count if tested_count > 0 else 0.0
+    return mar_index, resistant_count, tested_count
+
 
 class ResistanceProfile(BaseModel):
     """Input model for resistance profile"""
@@ -539,6 +707,10 @@ class MDRPrediction(BaseModel):
     """Output model for MDR prediction"""
     mdr_status: str
     mdr_class: int
+    mar_index: float
+    resistant_count: int
+    antibiotics_tested: int
+    mdr_threshold: float
     confidence: float
     probabilities: Dict[str, float]
 
@@ -588,13 +760,20 @@ async def health_check():
 @app.post("/predict/mdr", response_model=MDRPrediction)
 async def predict_mdr(profile: ResistanceProfile):
     """
-    Predict MDR status from resistance profile.
+    Predict MDR (Multi-Drug Resistance) status from resistance profile.
+    
+    MDR is determined using MAR index > 0.17 threshold.
+    A bacterium is considered MDR if it is resistant to approximately 4 or more
+    different antibiotics out of 22-23 typically tested.
     
     Returns:
-        MDR prediction with confidence scores
+        MDR prediction with confidence scores and MAR index calculation
     """
     if mar_model is None:
         raise HTTPException(status_code=503, detail="MAR model not loaded")
+    
+    # Calculate MAR index
+    mar_index, resistant_count, tested_count = calculate_mar_index(profile.antibiotics)
     
     # Preprocess input
     features = [ENCODING_MAP.get(v.lower(), 0) for v in profile.antibiotics.values()]
@@ -605,12 +784,16 @@ async def predict_mdr(profile: ResistanceProfile):
     proba = mar_model.predict_proba(X)[0] if hasattr(mar_model, 'predict_proba') else [0.5, 0.5]
     
     return MDRPrediction(
-        mdr_status="High MAR (MDR)" if prediction == 1 else "Low MAR",
+        mdr_status="MDR (Multi-Drug Resistant)" if prediction == 1 else "Non-MDR",
         mdr_class=int(prediction),
+        mar_index=round(mar_index, 4),
+        resistant_count=resistant_count,
+        antibiotics_tested=tested_count,
+        mdr_threshold=MDR_THRESHOLD,
         confidence=float(max(proba)),
         probabilities={
-            "Low MAR": float(proba[0]),
-            "High MAR (MDR)": float(proba[1])
+            "Non-MDR": float(proba[0]),
+            "MDR": float(proba[1])
         }
     )
 
